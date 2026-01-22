@@ -2,7 +2,7 @@
 // Service Worker for MASKA Reports PWA
 // ===================================
 
-const CACHE_NAME = 'maska-reports-v1';
+const CACHE_NAME = 'maska-reports-v2';
 const RUNTIME_CACHE = 'maska-runtime-v1';
 
 // Files to cache immediately
@@ -17,6 +17,9 @@ const PRECACHE_URLS = [
     '/sw-register.js',
     '/auth-callback.html',
     '/manifest.json',
+    '/favicon.svg',
+    '/favicon.ico',
+    '/apple-touch-icon.png',
     '/icons/icon-192x192.png',
     '/icons/icon-512x512.png'
 ];
