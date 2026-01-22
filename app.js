@@ -639,8 +639,24 @@ async function handleSync() {
     try {
         if (!isAuthenticated()) {
             await authenticateOneDrive();
+            showToast('Authenticated successfully! Click Sync again to sync reports.', 'success');
         } else {
-            // Sync all pending reports
+            // First, download reports FROM OneDrive
+            let downloadResults = null;
+            try {
+                downloadResults = await syncAllReportsFromOneDrive();
+                if (downloadResults.downloaded > 0) {
+                    showToast(`Downloaded ${downloadResults.downloaded} report(s) from OneDrive! 📥`, 'success');
+                    // Refresh history if modal is open
+                    if (document.getElementById('history-modal').classList.contains('active')) {
+                        await loadHistory();
+                    }
+                }
+            } catch (err) {
+                console.error('Download from OneDrive error:', err);
+            }
+            
+            // Then, upload local reports TO OneDrive
             const reports = await getAllReportsFromDB();
             let syncCount = 0;
             
@@ -649,11 +665,17 @@ async function handleSync() {
                     await uploadToOneDrive(report);
                     syncCount++;
                 } catch (err) {
-                    console.error('Sync error for report:', report.id, err);
+                    console.error('Upload error for report:', report.id, err);
                 }
             }
             
-            showToast(`Synced ${syncCount} report(s) to OneDrive! ☁️`, 'success');
+            if (syncCount > 0) {
+                showToast(`Uploaded ${syncCount} report(s) to OneDrive! ☁️`, 'success');
+            }
+            
+            if (!downloadResults || (downloadResults.downloaded === 0 && syncCount === 0)) {
+                showToast('All reports are already synced! ✓', 'info');
+            }
         }
     } catch (err) {
         console.error('Sync error:', err);
