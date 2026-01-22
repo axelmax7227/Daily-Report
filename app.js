@@ -11,6 +11,32 @@ const state = {
 // Utility Functions
 // ===================================
 
+// Sanitize user input to prevent XSS attacks
+function sanitizeInput(input) {
+    if (typeof input !== 'string') {
+        return '';
+    }
+    // Remove any HTML tags and trim whitespace
+    const div = document.createElement('div');
+    div.textContent = input;
+    return div.innerHTML.trim();
+}
+
+// Escape HTML for safe insertion into attributes
+function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
 // Format date as DD/MM/YYYY
 function formatDate(date) {
     const d = new Date(date);
@@ -76,8 +102,8 @@ function removeProject(projectId) {
 
 function updateProjectName(projectId, name) {
     const project = state.projects.find(p => p.id === projectId);
-    if (project) {
-        project.name = name;
+    if (project && typeof name === 'string') {
+        project.name = sanitizeInput(name);
         updatePreview();
     }
 }
@@ -109,7 +135,11 @@ function updateTask(projectId, taskId, field, value) {
     if (project) {
         const task = project.tasks.find(t => t.id === taskId);
         if (task) {
-            task[field] = field === 'hours' ? parseFloat(value) || 0 : value;
+            if (field === 'hours') {
+                task[field] = parseFloat(value) || 0;
+            } else if (field === 'description' && typeof value === 'string') {
+                task[field] = sanitizeInput(value);
+            }
             updatePreview();
             updateTotalHours();
         }
@@ -119,62 +149,103 @@ function updateTask(projectId, taskId, field, value) {
 function renderProjects() {
     const container = document.getElementById('projects-container');
     
+    // Clear existing content
+    container.innerHTML = '';
+    
     if (state.projects.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📁</div>
-                <p>No projects added yet. Click "Add Project" to get started.</p>
-            </div>
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.innerHTML = `
+            <div class="empty-state-icon">📁</div>
+            <p>No projects added yet. Click "Add Project" to get started.</p>
         `;
+        container.appendChild(emptyState);
         return;
     }
     
-    container.innerHTML = state.projects.map(project => `
-        <div class="project-card fade-in" data-project-id="${project.id}">
-            <div class="project-header">
-                <input 
-                    type="text" 
-                    class="form-control" 
-                    placeholder="Project Name (e.g., ROB4GREEN, MASKA)"
-                    value="${project.name}"
-                    onchange="updateProjectName(${project.id}, this.value)"
-                >
-                <button class="btn btn-danger btn-sm" onclick="removeProject(${project.id})">
-                    🗑️
-                </button>
-            </div>
+    // Create project cards using safe DOM methods
+    state.projects.forEach(project => {
+        const projectCard = document.createElement('div');
+        projectCard.className = 'project-card fade-in';
+        projectCard.dataset.projectId = project.id;
+        
+        // Project header
+        const projectHeader = document.createElement('div');
+        projectHeader.className = 'project-header';
+        
+        const projectInput = document.createElement('input');
+        projectInput.type = 'text';
+        projectInput.className = 'form-control';
+        projectInput.placeholder = 'Project Name (e.g., ROB4GREEN, MASKA)';
+        projectInput.value = project.name || '';
+        projectInput.addEventListener('change', (e) => {
+            updateProjectName(project.id, e.target.value);
+        });
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-danger btn-sm';
+        removeBtn.textContent = '🗑️';
+        removeBtn.addEventListener('click', () => {
+            removeProject(project.id);
+        });
+        
+        projectHeader.appendChild(projectInput);
+        projectHeader.appendChild(removeBtn);
+        
+        // Tasks container
+        const tasksContainer = document.createElement('div');
+        tasksContainer.className = 'tasks-container';
+        
+        project.tasks.forEach(task => {
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
             
-            <div class="tasks-container">
-                ${project.tasks.map(task => `
-                    <div class="task-item">
-                        <input 
-                            type="text" 
-                            class="form-control" 
-                            placeholder="Task description"
-                            value="${task.description}"
-                            onchange="updateTask(${project.id}, ${task.id}, 'description', this.value)"
-                        >
-                        <input 
-                            type="number" 
-                            class="form-control" 
-                            placeholder="Hours"
-                            min="0"
-                            step="0.5"
-                            value="${task.hours || ''}"
-                            onchange="updateTask(${project.id}, ${task.id}, 'hours', this.value)"
-                        >
-                        <button class="btn btn-danger btn-sm" onclick="removeTaskFromProject(${project.id}, ${task.id})">
-                            ✕
-                        </button>
-                    </div>
-                `).join('')}
-            </div>
+            const taskDescInput = document.createElement('input');
+            taskDescInput.type = 'text';
+            taskDescInput.className = 'form-control';
+            taskDescInput.placeholder = 'Task description';
+            taskDescInput.value = task.description || '';
+            taskDescInput.addEventListener('change', (e) => {
+                updateTask(project.id, task.id, 'description', e.target.value);
+            });
             
-            <button class="btn btn-secondary btn-sm" onclick="addTaskToProject(${project.id})">
-                + Add Task
-            </button>
-        </div>
-    `).join('');
+            const taskHoursInput = document.createElement('input');
+            taskHoursInput.type = 'number';
+            taskHoursInput.className = 'form-control';
+            taskHoursInput.placeholder = 'Hours';
+            taskHoursInput.min = '0';
+            taskHoursInput.step = '0.5';
+            taskHoursInput.value = task.hours || '';
+            taskHoursInput.addEventListener('change', (e) => {
+                updateTask(project.id, task.id, 'hours', e.target.value);
+            });
+            
+            const taskRemoveBtn = document.createElement('button');
+            taskRemoveBtn.className = 'btn btn-danger btn-sm';
+            taskRemoveBtn.textContent = '✕';
+            taskRemoveBtn.addEventListener('click', () => {
+                removeTaskFromProject(project.id, task.id);
+            });
+            
+            taskItem.appendChild(taskDescInput);
+            taskItem.appendChild(taskHoursInput);
+            taskItem.appendChild(taskRemoveBtn);
+            tasksContainer.appendChild(taskItem);
+        });
+        
+        // Add task button
+        const addTaskBtn = document.createElement('button');
+        addTaskBtn.className = 'btn btn-secondary btn-sm';
+        addTaskBtn.textContent = '+ Add Task';
+        addTaskBtn.addEventListener('click', () => {
+            addTaskToProject(project.id);
+        });
+        
+        projectCard.appendChild(projectHeader);
+        projectCard.appendChild(tasksContainer);
+        projectCard.appendChild(addTaskBtn);
+        container.appendChild(projectCard);
+    });
 }
 
 // ===================================
@@ -198,8 +269,8 @@ function removeGeneralTask(taskId) {
 
 function updateGeneralTask(taskId, value) {
     const task = state.generalTasks.find(t => t.id === taskId);
-    if (task) {
-        task.description = value;
+    if (task && typeof value === 'string') {
+        task.description = sanitizeInput(value);
         updatePreview();
     }
 }
@@ -207,29 +278,46 @@ function updateGeneralTask(taskId, value) {
 function renderGeneralTasks() {
     const container = document.getElementById('general-tasks-container');
     
+    // Clear existing content
+    container.innerHTML = '';
+    
     if (state.generalTasks.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state" style="padding: var(--spacing);">
-                <p style="font-size: 0.9rem;">No general tasks added yet.</p>
-            </div>
-        `;
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.style.padding = 'var(--spacing)';
+        const p = document.createElement('p');
+        p.style.fontSize = '0.9rem';
+        p.textContent = 'No general tasks added yet.';
+        emptyState.appendChild(p);
+        container.appendChild(emptyState);
         return;
     }
     
-    container.innerHTML = state.generalTasks.map(task => `
-        <div class="general-task-item fade-in">
-            <input 
-                type="text" 
-                class="form-control" 
-                placeholder="General task description"
-                value="${task.description}"
-                onchange="updateGeneralTask(${task.id}, this.value)"
-            >
-            <button class="btn btn-danger btn-sm" onclick="removeGeneralTask(${task.id})">
-                ✕
-            </button>
-        </div>
-    `).join('');
+    // Create general task items using safe DOM methods
+    state.generalTasks.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'general-task-item fade-in';
+        
+        const taskInput = document.createElement('input');
+        taskInput.type = 'text';
+        taskInput.className = 'form-control';
+        taskInput.placeholder = 'General task description';
+        taskInput.value = task.description || '';
+        taskInput.addEventListener('change', (e) => {
+            updateGeneralTask(task.id, e.target.value);
+        });
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-danger btn-sm';
+        removeBtn.textContent = '✕';
+        removeBtn.addEventListener('click', () => {
+            removeGeneralTask(task.id);
+        });
+        
+        taskItem.appendChild(taskInput);
+        taskItem.appendChild(removeBtn);
+        container.appendChild(taskItem);
+    });
 }
 
 // ===================================

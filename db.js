@@ -7,17 +7,30 @@ const DB_VERSION = 1;
 const STORE_NAME = 'reports';
 
 let db = null;
+let dbPromise = null;
 
 // ===================================
 // Database Initialization
 // ===================================
 
 function initDB() {
-    return new Promise((resolve, reject) => {
+    // Return existing promise if initialization is in progress
+    if (dbPromise) {
+        return dbPromise;
+    }
+    
+    // Return resolved promise if DB is already initialized
+    if (db) {
+        return Promise.resolve(db);
+    }
+    
+    // Create and store the initialization promise
+    dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         
         request.onerror = () => {
             console.error('Database error:', request.error);
+            dbPromise = null; // Reset on error to allow retry
             reject(request.error);
         };
         
@@ -42,6 +55,8 @@ function initDB() {
             }
         };
     });
+    
+    return dbPromise;
 }
 
 // ===================================
@@ -55,9 +70,9 @@ async function saveReportToDB(report) {
     }
     
     return new Promise((resolve, reject) => {
-        // Generate unique ID if not exists
+        // Generate unique ID if not exists using crypto API for guaranteed uniqueness
         if (!report.id) {
-            report.id = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            report.id = `report_${Date.now()}_${crypto.randomUUID()}`;
         }
         
         // Add timestamp

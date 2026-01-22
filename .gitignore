@@ -44,3 +44,12 @@ logs/
 *.pem
 *.key
 credentials.json
+
+# Old folder structure (migrated to root)
+Application/
+JavaScript/
+Styling/
+PWA Config/
+
+# Keep icons folder but track placeholder files
+# (Replace placeholders with real icons before production)

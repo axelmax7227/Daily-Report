@@ -14,6 +14,7 @@ const PRECACHE_URLS = [
     '/db.js',
     '/auth.js',
     '/onedrive.js',
+    '/sw-register.js',
     '/auth-callback.html',
     '/manifest.json',
     '/icons/icon-192x192.png',

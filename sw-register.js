@@ -11,7 +11,7 @@ if ('serviceWorker' in navigator) {
 
 async function registerServiceWorker() {
     try {
-        const registration = await navigator.serviceWorker.register('/service-worker.js', {
+        const registration = await navigator.serviceWorker.register('./service-worker.js', {
             scope: '/'
         });
         
@@ -136,19 +136,21 @@ function showUpdateNotification() {
     document.head.appendChild(style);
     document.body.insertBefore(updateBanner, document.body.firstChild);
     
-    // Update button handler
+    // Update button handler with { once: true } to prevent memory leaks
     document.getElementById('update-btn').addEventListener('click', () => {
         // Tell service worker to skip waiting
-        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+        if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+        }
         
         // Reload the page
         window.location.reload();
-    });
+    }, { once: true });
     
-    // Dismiss button handler
+    // Dismiss button handler with { once: true } to prevent memory leaks
     document.getElementById('dismiss-update-btn').addEventListener('click', () => {
         updateBanner.remove();
-    });
+    }, { once: true });
 }
 
 // ===================================
@@ -268,7 +270,7 @@ function showInstallPrompt() {
     document.head.appendChild(style);
     document.body.appendChild(installBanner);
     
-    // Install button handler
+    // Install button handler with { once: true } to prevent memory leaks
     document.getElementById('install-btn').addEventListener('click', async () => {
         if (!deferredPrompt) {
             return;
@@ -288,16 +290,18 @@ function showInstallPrompt() {
         installBanner.remove();
         
         if (outcome === 'accepted') {
-            showToast('App installed successfully! 🎉', 'success');
+            if (typeof showToast === 'function') {
+                showToast('App installed successfully! 🎉', 'success');
+            }
         }
-    });
+    }, { once: true });
     
-    // Dismiss button handler
+    // Dismiss button handler with { once: true } to prevent memory leaks
     document.getElementById('dismiss-install-btn').addEventListener('click', () => {
         installBanner.remove();
         // Remember user dismissed (optional)
         localStorage.setItem('install-prompt-dismissed', Date.now());
-    });
+    }, { once: true });
     
     // Auto-dismiss after showing a few times
     const dismissedTime = localStorage.getItem('install-prompt-dismissed');

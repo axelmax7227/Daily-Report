@@ -70,8 +70,14 @@ async function ensureReportsFolder() {
 // ===================================
 
 async function uploadToOneDrive(report) {
+    // Validate authentication and token expiry
     if (!isAuthenticated()) {
-        throw new Error('Not authenticated');
+        throw new Error('Not authenticated. Please sign in to OneDrive.');
+    }
+    
+    // Check if token is still valid
+    if (!isTokenValid()) {
+        throw new Error('Token expired. Please re-authenticate with OneDrive.');
     }
     
     const token = getToken();
@@ -82,6 +88,26 @@ async function uploadToOneDrive(report) {
         
         // Generate filename
         const filename = `MASKA_Daily_Report_${formatDateForFilename(report.date)}.txt`;
+        
+        // Check if file already exists to handle conflicts
+        let shouldUpload = true;
+        try {
+            const checkResponse = await fetch(
+                `${ONEDRIVE_API}/me/drive/root:/${REPORTS_FOLDER}/${filename}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            if (checkResponse.ok) {
+                // File exists - this is expected for updates
+                console.log('File exists, will update:', filename);
+            }
+        } catch (err) {
+            // File doesn't exist, continue with upload
+        }
         
         // Prepare file content
         const fileContent = `Subject: ${report.subject}\n\n${report.body}`;
@@ -102,6 +128,11 @@ async function uploadToOneDrive(report) {
         if (!uploadResponse.ok) {
             const errorText = await uploadResponse.text();
             console.error('Upload error:', errorText);
+            
+            if (uploadResponse.status === 401) {
+                throw new Error('Token expired. Please re-authenticate.');
+            }
+            
             throw new Error('Failed to upload to OneDrive');
         }
         
