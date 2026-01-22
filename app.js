@@ -644,16 +644,22 @@ async function handleSync() {
             // First, download reports FROM OneDrive
             let downloadResults = null;
             try {
+                console.log('Starting download from OneDrive...');
                 downloadResults = await syncAllReportsFromOneDrive();
+                console.log('Download results:', downloadResults);
+                
                 if (downloadResults.downloaded > 0) {
                     showToast(`Downloaded ${downloadResults.downloaded} report(s) from OneDrive! 📥`, 'success');
                     // Refresh history if modal is open
                     if (document.getElementById('history-modal').classList.contains('active')) {
                         await loadHistory();
                     }
+                } else if (downloadResults.skipped > 0) {
+                    console.log(`Skipped ${downloadResults.skipped} reports (already exist locally)`);
                 }
             } catch (err) {
                 console.error('Download from OneDrive error:', err);
+                showToast('Failed to download from OneDrive: ' + err.message, 'error');
             }
             
             // Then, upload local reports TO OneDrive
@@ -673,7 +679,10 @@ async function handleSync() {
                 showToast(`Uploaded ${syncCount} report(s) to OneDrive! ☁️`, 'success');
             }
             
-            if (!downloadResults || (downloadResults.downloaded === 0 && syncCount === 0)) {
+            // Show appropriate message based on results
+            if (downloadResults && downloadResults.downloaded === 0 && downloadResults.skipped > 0 && syncCount === 0) {
+                showToast(`${downloadResults.skipped} report(s) already synced! ✓`, 'info');
+            } else if (!downloadResults || (downloadResults.downloaded === 0 && syncCount === 0)) {
                 showToast('All reports are already synced! ✓', 'info');
             }
         }
