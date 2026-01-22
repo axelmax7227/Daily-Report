@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+        .error {
+            color: #ffcccb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <div class="message" id="message">Processing authentication...</div>
+    </div>
+
+    <script>
+        // Extract token from URL fragment
+        function getHashParams() {
+            const hash = window.location.hash.substring(1);
+            const params = {};
+            
+            hash.split('&').forEach(param => {
+                const [key, value] = param.split('=');
+                params[key] = decodeURIComponent(value);
+            });
+            
+            return params;
+        }
+
+        // Process authentication response
+        function processAuth() {
+            const params = getHashParams();
+            const messageEl = document.getElementById('message');
+
+            if (params.access_token) {
+                // Success - send token to parent window
+                messageEl.textContent = 'Authentication successful! ✓';
+                
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'auth-success',
+                        accessToken: params.access_token,
+                        expiresIn: parseInt(params.expires_in) || 3600
+                    }, window.opener.origin);
+                    
+                    setTimeout(() => {
+                        window.close();
+                    }, 1000);
+                } else {
+                    messageEl.textContent = 'Please close this window and return to the app.';
+                }
+            } else if (params.error) {
+                // Error
+                messageEl.textContent = `Authentication failed: ${params.error_description || params.error}`;
+                messageEl.className = 'message error';
+                
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'auth-error',
+                        error: params.error_description || params.error
+                    }, window.opener.origin);
+                    
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                }
+            } else {
+                // No token or error
+                messageEl.textContent = 'No authentication information received.';
+                messageEl.className = 'message error';
+                
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            }
+        }
+
+        // Run on page load
+        processAuth();
+    </script>
+</body>
+</html>
