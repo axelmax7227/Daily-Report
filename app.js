@@ -645,7 +645,7 @@ async function handleSync() {
             let downloadResults = null;
             try {
                 console.log('Starting download from OneDrive...');
-                downloadResults = await syncAllReportsFromOneDrive();
+                downloadResults = await syncFromOneDrive();
                 console.log('Download results:', downloadResults);
                 
                 if (downloadResults.downloaded > 0) {
