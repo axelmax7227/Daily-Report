@@ -889,24 +889,31 @@ async function handleSync() {
             // Then, upload local reports TO OneDrive
             const reports = await getAllReportsFromDB();
             let syncCount = 0;
+            let uploadedCount = 0;
             
             for (const report of reports) {
                 try {
-                    await uploadToOneDrive(report);
+                    const result = await uploadToOneDrive(report);
                     syncCount++;
+                    // Only count as uploaded if file was actually created/updated
+                    if (result) {
+                        uploadedCount++;
+                    }
                 } catch (err) {
                     console.error('Upload error for report:', report.id, err);
                 }
             }
             
-            if (syncCount > 0) {
-                showToast(`Uploaded ${syncCount} report(s) to OneDrive! ☁️`, 'success');
+            // Don't show upload message since we're using cloud history now
+            // (uploads happen automatically on save)
+            if (uploadedCount > 0) {
+                console.log(`Synced ${uploadedCount} report(s) to OneDrive`);
             }
             
             // Show appropriate message based on results
-            if (downloadResults && downloadResults.downloaded === 0 && downloadResults.skipped > 0 && syncCount === 0) {
-                showToast(`${downloadResults.skipped} report(s) already synced! ✓`, 'info');
-            } else if (!downloadResults || (downloadResults.downloaded === 0 && syncCount === 0)) {
+            if (downloadResults && downloadResults.downloaded === 0 && downloadResults.skipped > 0 && uploadedCount === 0) {
+                showToast(`All reports synced! ✓`, 'info');
+            } else if (!downloadResults || (downloadResults.downloaded === 0 && uploadedCount === 0)) {
                 showToast('All reports are already synced! ✓', 'info');
             }
         }
