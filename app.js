@@ -377,10 +377,16 @@ function generateReport() {
     let body = `Dear Dionisis,\n\n`;
     body += `Today, I worked from ${location} from ${timeFrom} to ${timeTo}.\n\n`;
     
-    // Calculate total task hours
-    const totalTaskHours = state.projects.reduce((sum, project) => {
+    // Calculate total task hours (including general tasks)
+    const projectTaskHours = state.projects.reduce((sum, project) => {
         return sum + project.tasks.reduce((taskSum, task) => taskSum + (task.hours || 0), 0);
     }, 0);
+    
+    const generalTaskHours = state.generalTasks.reduce((sum, task) => {
+        return sum + (task.hours || 0);
+    }, 0);
+    
+    const totalTaskHours = projectTaskHours + generalTaskHours;
     
     body += `Tasks Hours: ${totalTaskHours}h\n\n`;
     
@@ -390,7 +396,7 @@ function generateReport() {
             body += `${project.name}:\n`;
             project.tasks.forEach(task => {
                 if (task.description) {
-                    const hours = task.hours ? ` (${task.hours}h)` : '';
+                    const hours = task.hours ? ` [${task.hours}h]` : '';
                     body += `   • ${task.description}${hours}\n`;
                 }
             });
@@ -403,7 +409,7 @@ function generateReport() {
         body += `General Tasks:\n`;
         state.generalTasks.forEach(task => {
             if (task.description) {
-                const hours = task.hours ? ` (${task.hours}h)` : '';
+                const hours = task.hours ? ` [${task.hours}h]` : '';
                 body += `   • ${task.description}${hours}\n`;
             }
         });
@@ -729,13 +735,13 @@ function parseReportContent(content, filename) {
             // If in general tasks section
             if (inGeneralTasks && line.startsWith('•')) {
                 const taskText = line.replace('•', '').trim();
-                const hoursMatch = taskText.match(/\((\d+(?:\.\d+)?)h\)$/);
+                const hoursMatch = taskText.match(/\[(\d+(?:\.\d+)?)h\]$/);
                 let description = taskText;
                 let hours = 0;
                 
                 if (hoursMatch) {
                     hours = parseFloat(hoursMatch[1]);
-                    description = taskText.replace(/\(\d+(?:\.\d+)?h\)$/, '').trim();
+                    description = taskText.replace(/\[\d+(?:\.\d+)?h\]$/, '').trim();
                 }
                 
                 generalTasks.push({
@@ -758,13 +764,13 @@ function parseReportContent(content, filename) {
             // Task line (starts with bullet)
             else if (line.startsWith('•') && currentProject) {
                 const taskText = line.replace('•', '').trim();
-                const hoursMatch = taskText.match(/\((\d+(?:\.\d+)?)h\)$/);
+                const hoursMatch = taskText.match(/\[(\d+(?:\.\d+)?)h\]$/);
                 let description = taskText;
                 let hours = 0;
                 
                 if (hoursMatch) {
                     hours = parseFloat(hoursMatch[1]);
-                    description = taskText.replace(/\(\d+(?:\.\d+)?h\)$/, '').trim();
+                    description = taskText.replace(/\[\d+(?:\.\d+)?h\]$/, '').trim();
                 }
                 
                 currentProject.tasks.push({
