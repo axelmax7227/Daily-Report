@@ -445,28 +445,22 @@ async function copyToClipboard() {
     
     if (!report) return;
     
-    const textToCopy = `Subject: ${report.subject}\n\n${report.body}`;
-    
     try {
-        await navigator.clipboard.writeText(textToCopy);
-        showToast('Report copied to clipboard! ✓', 'success');
+        // Create mailto link
+        const recipient = 'dionisis@example.com'; // Change this to the actual recipient
+        const subject = encodeURIComponent(report.subject);
+        const body = encodeURIComponent(report.body);
+        
+        // Create mailto URL
+        const mailtoUrl = `mailto:${recipient}?subject=${subject}&body=${body}`;
+        
+        // Open email client
+        window.location.href = mailtoUrl;
+        
+        showToast('Opening email client... 📧', 'success');
     } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = textToCopy;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        
-        try {
-            document.execCommand('copy');
-            showToast('Report copied to clipboard! ✓', 'success');
-        } catch (err) {
-            showToast('Failed to copy to clipboard', 'error');
-        }
-        
-        document.body.removeChild(textArea);
+        console.error('Error opening email:', err);
+        showToast('Failed to open email client', 'error');
     }
 }
 
