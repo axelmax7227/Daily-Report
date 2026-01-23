@@ -255,7 +255,8 @@ function renderProjects() {
 function addGeneralTask() {
     state.generalTasks.push({
         id: Date.now(),
-        description: ''
+        description: '',
+        hours: 0
     });
     renderGeneralTasks();
     updatePreview();
@@ -267,11 +268,16 @@ function removeGeneralTask(taskId) {
     updatePreview();
 }
 
-function updateGeneralTask(taskId, value) {
+function updateGeneralTask(taskId, field, value) {
     const task = state.generalTasks.find(t => t.id === taskId);
-    if (task && typeof value === 'string') {
-        task.description = sanitizeInput(value);
+    if (task) {
+        if (field === 'hours') {
+            task[field] = parseFloat(value) || 0;
+        } else if (field === 'description' && typeof value === 'string') {
+            task[field] = sanitizeInput(value);
+        }
         updatePreview();
+        updateTotalHours();
     }
 }
 
@@ -304,7 +310,18 @@ function renderGeneralTasks() {
         taskInput.placeholder = 'General task description';
         taskInput.value = task.description || '';
         taskInput.addEventListener('change', (e) => {
-            updateGeneralTask(task.id, e.target.value);
+            updateGeneralTask(task.id, 'description', e.target.value);
+        });
+        
+        const hoursInput = document.createElement('input');
+        hoursInput.type = 'number';
+        hoursInput.className = 'form-control';
+        hoursInput.placeholder = 'Hours';
+        hoursInput.min = '0';
+        hoursInput.step = '0.5';
+        hoursInput.value = task.hours || '';
+        hoursInput.addEventListener('change', (e) => {
+            updateGeneralTask(task.id, 'hours', e.target.value);
         });
         
         const removeBtn = document.createElement('button');
@@ -315,6 +332,7 @@ function renderGeneralTasks() {
         });
         
         taskItem.appendChild(taskInput);
+        taskItem.appendChild(hoursInput);
         taskItem.appendChild(removeBtn);
         container.appendChild(taskItem);
     });
@@ -325,9 +343,15 @@ function renderGeneralTasks() {
 // ===================================
 
 function updateTotalHours() {
-    const total = state.projects.reduce((sum, project) => {
+    const projectHours = state.projects.reduce((sum, project) => {
         return sum + project.tasks.reduce((taskSum, task) => taskSum + (task.hours || 0), 0);
     }, 0);
+    
+    const generalHours = state.generalTasks.reduce((sum, task) => {
+        return sum + (task.hours || 0);
+    }, 0);
+    
+    const total = projectHours + generalHours;
     
     document.getElementById('total-hours-display').textContent = `${total}h`;
 }
@@ -379,7 +403,8 @@ function generateReport() {
         body += `General Tasks:\n`;
         state.generalTasks.forEach(task => {
             if (task.description) {
-                body += `   • ${task.description}\n`;
+                const hours = task.hours ? ` (${task.hours}h)` : '';
+                body += `   • ${task.description}${hours}\n`;
             }
         });
         body += `\n`;
@@ -705,10 +730,20 @@ function parseReportContent(content, filename) {
             
             // If in general tasks section
             if (inGeneralTasks && line.startsWith('•')) {
-                const description = line.replace('•', '').trim();
+                const taskText = line.replace('•', '').trim();
+                const hoursMatch = taskText.match(/\((\d+(?:\.\d+)?)h\)$/);
+                let description = taskText;
+                let hours = 0;
+                
+                if (hoursMatch) {
+                    hours = parseFloat(hoursMatch[1]);
+                    description = taskText.replace(/\(\d+(?:\.\d+)?h\)$/, '').trim();
+                }
+                
                 generalTasks.push({
                     id: Date.now() + Math.random(),
-                    description
+                    description,
+                    hours
                 });
             }
             // Project name (no bullet point, ends with colon)
