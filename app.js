@@ -446,13 +446,17 @@ async function copyToClipboard() {
     if (!report) return;
     
     try {
-        // Create mailto link
-        const recipient = 'dionisis@example.com'; // Change this to the actual recipient
+        // Create mailto link with multiple recipients (separated by commas)
+        const recipients = [
+            'andronas@lms.mech.upatras.gr',
+            'theodoropoulos@lms.mech.upatras.gr',
+            'makris@lms.mech.upatras.gr'
+        ].join(',');
         const subject = encodeURIComponent(report.subject);
         const body = encodeURIComponent(report.body);
         
         // Create mailto URL
-        const mailtoUrl = `mailto:${recipient}?subject=${subject}&body=${body}`;
+        const mailtoUrl = `mailto:${recipients}?subject=${subject}&body=${body}`;
         
         // Open email client
         window.location.href = mailtoUrl;
