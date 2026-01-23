@@ -435,6 +435,65 @@ async function getOneDriveStorageInfo() {
 }
 
 // ===================================
+// Get All Reports from OneDrive with Metadata
+// ===================================
+
+async function getAllReportsFromOneDrive() {
+    if (!isAuthenticated()) {
+        throw new Error('Not authenticated');
+    }
+    
+    try {
+        const files = await listOneDriveReports();
+        
+        // Filter only MASKA report files
+        const reportFiles = files.filter(file => 
+            file.name && file.name.startsWith('MASKA_Daily_Report_')
+        );
+        
+        // Sort by date (newest first) - extract date from filename
+        reportFiles.sort((a, b) => {
+            const dateA = a.name.match(/\d{2}-\d{2}-\d{4}/)?.[0];
+            const dateB = b.name.match(/\d{2}-\d{2}-\d{4}/)?.[0];
+            if (!dateA || !dateB) return 0;
+            
+            // Convert DD-MM-YYYY to Date object for comparison
+            const [dayA, monthA, yearA] = dateA.split('-');
+            const [dayB, monthB, yearB] = dateB.split('-');
+            const timeA = new Date(`${yearA}-${monthA}-${dayA}`).getTime();
+            const timeB = new Date(`${yearB}-${monthB}-${dayB}`).getTime();
+            
+            return timeB - timeA; // Newest first
+        });
+        
+        // Map to report-like objects with metadata
+        return reportFiles.map(file => {
+            // Extract date from filename: MASKA_Daily_Report_DD-MM-YYYY.txt
+            const dateMatch = file.name.match(/(\d{2})-(\d{2})-(\d{4})/);
+            let date = null;
+            if (dateMatch) {
+                const [, day, month, year] = dateMatch;
+                date = `${year}-${month}-${day}`; // Convert to YYYY-MM-DD
+            }
+            
+            return {
+                id: file.id,
+                cloudId: file.id,
+                name: file.name,
+                date: date,
+                size: file.size,
+                modifiedDate: file.lastModifiedDateTime,
+                isCloudOnly: true,
+                webUrl: file.webUrl
+            };
+        });
+    } catch (err) {
+        console.error('Error getting all reports from OneDrive:', err);
+        throw err;
+    }
+}
+
+// ===================================
 // Export Functions
 // ===================================
 
@@ -447,6 +506,7 @@ if (typeof module !== 'undefined' && module.exports) {
         syncAllReportsToOneDrive,
         syncFromOneDrive,
         getOneDriveStorageInfo,
-        ensureReportsFolder
+        ensureReportsFolder,
+        getAllReportsFromOneDrive
     };
 }

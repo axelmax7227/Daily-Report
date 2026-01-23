@@ -490,44 +490,61 @@ function closeHistoryModal() {
 
 async function loadHistory() {
     const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '<div class="loading">Loading history...</div>';
+    historyList.innerHTML = '<div class="loading">☁️ Loading history from OneDrive...</div>';
     
     try {
-        const reports = await getAllReportsFromDB();
-        
-        if (reports.length === 0) {
+        // Check authentication first
+        if (!isAuthenticated()) {
             historyList.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📭</div>
-                    <p>No reports saved yet.</p>
+                    <div class="empty-state-icon">🔒</div>
+                    <p>Please sign in to OneDrive to view your reports</p>
+                    <button class="btn btn-primary" onclick="handleSync()">Sign In</button>
                 </div>
             `;
             return;
         }
         
+        // Fetch reports directly from OneDrive
+        const reports = await getAllReportsFromOneDrive();
+        
+        if (reports.length === 0) {
+            historyList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>No reports found in OneDrive.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display cloud reports
         historyList.innerHTML = reports.map(report => `
             <div class="history-item fade-in">
                 <div class="history-item-header">
-                    <div class="history-item-date">${formatDate(report.date)}</div>
+                    <div class="history-item-date">
+                        ${formatDate(report.date)} <span style="opacity: 0.6;">☁️</span>
+                    </div>
                     <div class="history-item-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="loadReport('${report.id}')">
+                        <button class="btn btn-secondary btn-sm" onclick="loadCloudReport('${report.cloudId}', '${report.name}')">
                             Load
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteReport('${report.id}')">
+                        <button class="btn btn-danger btn-sm" onclick="deleteCloudReport('${report.cloudId}', '${report.name}')">
                             Delete
                         </button>
                     </div>
                 </div>
                 <div class="history-item-info">
-                    ${report.location} | ${report.timeFrom} - ${report.timeTo} | ${report.totalHours}h
+                    ${report.name.replace('MASKA_Daily_Report_', '').replace('.txt', '')}
                 </div>
             </div>
         `).join('');
     } catch (err) {
-        console.error('Error loading history:', err);
+        console.error('Error loading history from OneDrive:', err);
         historyList.innerHTML = `
             <div class="empty-state">
-                <p style="color: var(--danger-color);">Error loading history</p>
+                <p style="color: var(--danger-color);">Error loading history: ${err.message}</p>
+                <button class="btn btn-secondary" onclick="loadHistory()">Retry</button>
             </div>
         `;
     }
@@ -576,6 +593,174 @@ async function deleteReport(reportId) {
     } catch (err) {
         console.error('Error deleting report:', err);
         showToast('Failed to delete report', 'error');
+    }
+}
+
+// ===================================
+// Cloud Report Management
+// ===================================
+
+async function loadCloudReport(cloudId, filename) {
+    try {
+        showToast('Downloading report from OneDrive...', 'info');
+        
+        // Download the file content from OneDrive
+        const content = await downloadFromOneDrive(filename);
+        
+        // Parse the content to extract report data
+        const report = parseReportContent(content, filename);
+        
+        if (!report) {
+            showToast('Failed to parse report', 'error');
+            return;
+        }
+        
+        // Load report data into form
+        document.getElementById('report-date').value = report.date;
+        document.getElementById('work-location').value = report.location;
+        document.getElementById('time-from').value = report.timeFrom;
+        document.getElementById('time-to').value = report.timeTo;
+        
+        state.projects = report.projects || [];
+        state.generalTasks = report.generalTasks || [];
+        
+        renderProjects();
+        renderGeneralTasks();
+        updatePreview();
+        updateTotalHours();
+        
+        closeHistoryModal();
+        showToast('Report loaded from OneDrive! ☁️', 'success');
+    } catch (err) {
+        console.error('Error loading cloud report:', err);
+        showToast('Failed to load report: ' + err.message, 'error');
+    }
+}
+
+async function deleteCloudReport(cloudId, filename) {
+    if (!confirm(`Are you sure you want to delete "${filename}" from OneDrive?`)) {
+        return;
+    }
+    
+    try {
+        await deleteFromOneDrive(cloudId);
+        showToast('Report deleted from OneDrive! ✓', 'success');
+        loadHistory();
+    } catch (err) {
+        console.error('Error deleting cloud report:', err);
+        showToast('Failed to delete report: ' + err.message, 'error');
+    }
+}
+
+// Parse report content from OneDrive text file
+function parseReportContent(content, filename) {
+    try {
+        // Extract date from filename: MASKA_Daily_Report_DD-MM-YYYY.txt
+        const dateMatch = filename.match(/(\d{2})-(\d{2})-(\d{4})/);
+        let date = null;
+        if (dateMatch) {
+            const [, day, month, year] = dateMatch;
+            date = `${year}-${month}-${day}`; // Convert to YYYY-MM-DD
+        }
+        
+        // Parse content
+        const lines = content.split('\n');
+        
+        // Extract work details from "Today, I worked from [location] from [time] to [time]"
+        let location = 'TF';
+        let timeFrom = '09:00';
+        let timeTo = '17:00';
+        
+        const workLine = lines.find(line => line.includes('Today, I worked from'));
+        if (workLine) {
+            const locationMatch = workLine.match(/worked from (\w+|Remote)/);
+            if (locationMatch) location = locationMatch[1];
+            
+            const timeMatch = workLine.match(/from (\d{2}:\d{2}) to (\d{2}:\d{2})/);
+            if (timeMatch) {
+                timeFrom = timeMatch[1];
+                timeTo = timeMatch[2];
+            }
+        }
+        
+        // Extract projects and tasks
+        const projects = [];
+        let currentProject = null;
+        let inGeneralTasks = false;
+        const generalTasks = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Check for "General Tasks:" section
+            if (line === 'General Tasks:') {
+                inGeneralTasks = true;
+                continue;
+            }
+            
+            // Skip empty lines and header
+            if (!line || line.startsWith('Dear') || line.startsWith('Today,') || line.startsWith('Tasks Hours:') || line.startsWith('Best regards')) {
+                continue;
+            }
+            
+            // If in general tasks section
+            if (inGeneralTasks && line.startsWith('•')) {
+                const description = line.replace('•', '').trim();
+                generalTasks.push({
+                    id: Date.now() + Math.random(),
+                    description
+                });
+            }
+            // Project name (no bullet point, ends with colon)
+            else if (line.endsWith(':') && !line.startsWith('•')) {
+                if (currentProject) {
+                    projects.push(currentProject);
+                }
+                currentProject = {
+                    id: Date.now() + Math.random(),
+                    name: line.slice(0, -1),
+                    tasks: []
+                };
+            }
+            // Task line (starts with bullet)
+            else if (line.startsWith('•') && currentProject) {
+                const taskText = line.replace('•', '').trim();
+                const hoursMatch = taskText.match(/\\((\\d+(?:\\.\\d+)?)h\\)$/);
+                let description = taskText;
+                let hours = 0;
+                
+                if (hoursMatch) {
+                    hours = parseFloat(hoursMatch[1]);
+                    description = taskText.replace(/\\(\\d+(?:\\.\\d+)?h\\)$/, '').trim();
+                }
+                
+                currentProject.tasks.push({
+                    id: Date.now() + Math.random(),
+                    description,
+                    hours
+                });
+            }
+        }
+        
+        // Add last project
+        if (currentProject) {
+            projects.push(currentProject);
+        }
+        
+        return {
+            date,
+            location,
+            timeFrom,
+            timeTo,
+            projects,
+            generalTasks,
+            totalHours: projects.reduce((sum, p) => 
+                sum + p.tasks.reduce((taskSum, t) => taskSum + (t.hours || 0), 0), 0
+            )
+        };
+    } catch (err) {
+        console.error('Error parsing report:', err);
+        return null;
     }
 }
 
