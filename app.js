@@ -725,13 +725,13 @@ function parseReportContent(content, filename) {
             // Task line (starts with bullet)
             else if (line.startsWith('•') && currentProject) {
                 const taskText = line.replace('•', '').trim();
-                const hoursMatch = taskText.match(/\\((\\d+(?:\\.\\d+)?)h\\)$/);
+                const hoursMatch = taskText.match(/\((\d+(?:\.\d+)?)h\)$/);
                 let description = taskText;
                 let hours = 0;
                 
                 if (hoursMatch) {
                     hours = parseFloat(hoursMatch[1]);
-                    description = taskText.replace(/\\(\\d+(?:\\.\\d+)?h\\)$/, '').trim();
+                    description = taskText.replace(/\(\d+(?:\.\d+)?h\)$/, '').trim();
                 }
                 
                 currentProject.tasks.push({
