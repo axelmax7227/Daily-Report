@@ -389,7 +389,7 @@ function generateReport() {
     
     const totalTaskHours = projectTaskHours + generalTaskHours;
     
-    body += `Tasks Hours: ${totalTaskHours}h\n\n`;
+    body += `Tasks Hours: [${totalTaskHours}h]\n\n`;
     
     // Add projects and tasks
     state.projects.forEach(project => {
