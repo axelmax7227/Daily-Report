@@ -398,7 +398,7 @@ function generateReport() {
             project.tasks.forEach(task => {
                 if (task.description) {
                     const hours = task.hours ? ` [${task.hours}h]` : '';
-                    body += `   • ${task.description}${hours}\n`;
+                    body += `    • ${task.description}${hours}\n`;
                 }
             });
             body += `\n`;
