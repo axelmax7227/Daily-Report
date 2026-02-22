@@ -320,15 +320,6 @@ body {
     background: #006d5d;
 }
 
-.btn-warning {
-    background: #f59e0b;
-    color: #1a1a1a;
-}
-
-.btn-warning:hover {
-    background: #d97706;
-}
-
 .btn-danger {
     background: var(--danger-color);
     color: white;
@@ -693,65 +684,4 @@ body {
     .preview-section {
         box-shadow: none;
     }
-}
-
-/* ===================================
-   Mail Test Results
-   =================================== */
-
-.mail-test-results {
-    margin-top: 16px;
-    padding: 16px;
-    border-radius: 8px;
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-}
-
-.mail-test-results h3 {
-    margin: 0 0 12px 0;
-    font-size: 1.1rem;
-}
-
-.mail-test-loading {
-    padding: 12px;
-    text-align: center;
-    color: #666;
-    font-style: italic;
-}
-
-.mail-test-success {
-    padding: 8px 12px;
-    margin: 6px 0;
-    border-radius: 6px;
-    background: #e6f4ea;
-    color: #1e7e34;
-    border-left: 4px solid #28a745;
-}
-
-.mail-test-error {
-    padding: 8px 12px;
-    margin: 6px 0;
-    border-radius: 6px;
-    background: #fce8e6;
-    color: #c62828;
-    border-left: 4px solid #dc3545;
-}
-
-.mail-test-detail {
-    padding: 4px 12px 4px 28px;
-    margin: 2px 0;
-    color: #555;
-    font-size: 0.9rem;
-}
-
-.mail-test-list {
-    margin: 4px 0 8px 28px;
-    padding: 0;
-    list-style: disc;
-}
-
-.mail-test-list li {
-    padding: 3px 0;
-    font-size: 0.9rem;
-    color: #333;
 }

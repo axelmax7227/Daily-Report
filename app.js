@@ -831,7 +831,6 @@ function initializeApp() {
     document.getElementById('history-btn').addEventListener('click', openHistoryModal);
     document.getElementById('close-history-btn').addEventListener('click', closeHistoryModal);
     document.getElementById('sync-btn').addEventListener('click', handleSync);
-    document.getElementById('test-mail-btn').addEventListener('click', testMailAccess);
     
     // Form change listeners for auto-preview
     document.getElementById('report-date').addEventListener('change', updatePreview);
@@ -849,127 +848,6 @@ function initializeApp() {
     // Initial preview
     updatePreview();
     updateTotalHours();
-}
-
-// ===================================
-// Mail Access Test
-// ===================================
-
-async function testMailAccess() {
-    const resultsDiv = document.getElementById('mail-test-results');
-    resultsDiv.style.display = 'block';
-    resultsDiv.innerHTML = '<div class="mail-test-loading">⏳ Testing mail access...</div>';
-
-    if (!isAuthenticated()) {
-        try {
-            await authenticateOneDrive();
-        } catch (err) {
-            resultsDiv.innerHTML = '<div class="mail-test-error">❌ Authentication required. Please sign in first.</div>';
-            return;
-        }
-    }
-
-    const token = getToken();
-    let results = '<h3>🧪 Mail Access Test Results</h3>';
-
-    // Test 1: Mail.Read — read latest message
-    try {
-        const readRes = await fetch(
-            'https://graph.microsoft.com/v1.0/me/messages?$top=1&$select=subject,receivedDateTime',
-            { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-
-        if (readRes.ok) {
-            const data = await readRes.json();
-            results += '<div class="mail-test-success">✅ <strong>Mail.Read</strong> — Permission granted!</div>';
-            if (data.value && data.value.length > 0) {
-                const msg = data.value[0];
-                results += `<div class="mail-test-detail">Latest message: <em>${escapeHtml(msg.subject)}</em> (${new Date(msg.receivedDateTime).toLocaleString()})</div>`;
-            } else {
-                results += '<div class="mail-test-detail">No messages found in mailbox.</div>';
-            }
-        } else if (readRes.status === 403) {
-            results += '<div class="mail-test-error">❌ <strong>Mail.Read</strong> — Mail permissions not granted - admin approval needed</div>';
-        } else {
-            const errData = await readRes.json().catch(() => ({}));
-            results += `<div class="mail-test-error">❌ <strong>Mail.Read</strong> — Error ${readRes.status}: ${errData.error?.message || readRes.statusText}</div>`;
-        }
-    } catch (err) {
-        results += `<div class="mail-test-error">❌ <strong>Mail.Read</strong> — Network error: ${err.message}</div>`;
-    }
-
-    // Test 2: Read Sent Items with "Daily Report" filter
-    try {
-        const sentRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/mailFolders/SentItems/messages?$filter=contains(subject,'Daily Report')&$select=subject,sentDateTime&$top=3`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-
-        if (sentRes.ok) {
-            const data = await sentRes.json();
-            results += '<div class="mail-test-success">✅ <strong>Sent Items (Daily Report)</strong> — Access granted!</div>';
-            if (data.value && data.value.length > 0) {
-                results += '<ul class="mail-test-list">';
-                data.value.forEach(msg => {
-                    results += `<li><strong>${escapeHtml(msg.subject)}</strong> — ${new Date(msg.sentDateTime).toLocaleString()}</li>`;
-                });
-                results += '</ul>';
-            } else {
-                results += '<div class="mail-test-detail">No sent emails with "Daily Report" in subject found.</div>';
-            }
-        } else if (sentRes.status === 403) {
-            results += '<div class="mail-test-error">❌ <strong>Sent Items</strong> — Mail permissions not granted - admin approval needed</div>';
-        } else {
-            const errData = await sentRes.json().catch(() => ({}));
-            results += `<div class="mail-test-error">❌ <strong>Sent Items</strong> — Error ${sentRes.status}: ${errData.error?.message || sentRes.statusText}</div>`;
-        }
-    } catch (err) {
-        results += `<div class="mail-test-error">❌ <strong>Sent Items</strong> — Network error: ${err.message}</div>`;
-    }
-
-    // Test 3: Mail.Send — check by creating (but not sending) a draft
-    try {
-        const draftRes = await fetch(
-            'https://graph.microsoft.com/v1.0/me/messages',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    subject: '[TEST] Mail.Send permission check — safe to delete',
-                    body: { contentType: 'Text', content: 'This draft was created to test Mail.Send permission. You can delete it.' },
-                    toRecipients: []
-                })
-            }
-        );
-
-        if (draftRes.ok) {
-            const draft = await draftRes.json();
-            results += '<div class="mail-test-success">✅ <strong>Mail.Send</strong> — Permission granted! (draft created, not sent)</div>';
-            // Clean up: delete the test draft
-            try {
-                await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                results += '<div class="mail-test-detail">Test draft cleaned up automatically.</div>';
-            } catch (_) {
-                results += '<div class="mail-test-detail">Note: test draft left in Drafts folder — safe to delete manually.</div>';
-            }
-        } else if (draftRes.status === 403) {
-            results += '<div class="mail-test-error">❌ <strong>Mail.Send</strong> — Mail permissions not granted - admin approval needed</div>';
-        } else {
-            const errData = await draftRes.json().catch(() => ({}));
-            results += `<div class="mail-test-error">❌ <strong>Mail.Send</strong> — Error ${draftRes.status}: ${errData.error?.message || draftRes.statusText}</div>`;
-        }
-    } catch (err) {
-        results += `<div class="mail-test-error">❌ <strong>Mail.Send</strong> — Network error: ${err.message}</div>`;
-    }
-
-    results += '<div class="mail-test-detail" style="margin-top:12px;opacity:0.7;">Re-authenticate after scope changes to pick up new permissions.</div>';
-    resultsDiv.innerHTML = results;
 }
 
 // ===================================
