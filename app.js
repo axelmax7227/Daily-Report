@@ -376,7 +376,8 @@ function generateReport() {
     
     let body = `Dear Dionisis,\n\n`;
     body += `Today, I worked from ${location} from ${timeFrom} to ${timeTo}.\n\n`;
-    
+    body += `Progress of the day:\n\n`;
+
     // Calculate total task hours (including general tasks)
     const projectTaskHours = state.projects.reduce((sum, project) => {
         return sum + project.tasks.reduce((taskSum, task) => taskSum + (task.hours || 0), 0);
@@ -388,7 +389,7 @@ function generateReport() {
     
     const totalTaskHours = projectTaskHours + generalTaskHours;
     
-    body += `Tasks Hours: ${totalTaskHours}h\n\n`;
+    body += `Tasks Hours: [${totalTaskHours}h]\n\n`;
     
     // Add projects and tasks
     state.projects.forEach(project => {
@@ -397,7 +398,7 @@ function generateReport() {
             project.tasks.forEach(task => {
                 if (task.description) {
                     const hours = task.hours ? ` [${task.hours}h]` : '';
-                    body += `   • ${task.description}${hours}\n`;
+                    body += `    • ${task.description}${hours}\n`;
                 }
             });
             body += `\n`;
