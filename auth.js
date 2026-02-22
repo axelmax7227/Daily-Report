@@ -6,7 +6,7 @@
 const AUTH_CONFIG = {
     clientId: '', // Will be set from environment or user input
     redirectUri: window.location.origin + '/auth-callback.html',
-    scopes: ['Files.ReadWrite', 'User.Read'],
+    scopes: ['Files.ReadWrite', 'User.Read', 'Mail.Read', 'Mail.Read.Shared', 'Mail.Send'],
     authority: 'https://login.microsoftonline.com/common',
     apiEndpoint: 'https://graph.microsoft.com/v1.0'
 };
